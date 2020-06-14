@@ -1,0 +1,71 @@
+---
+    - name: Build application
+      hosts: builder
+      become: yes
+    
+      tasks:
+        - name: Ensure all packages are installed
+          apt:
+            pkg: 
+              - default-jdk 
+              - maven 
+              - git
+    
+        - name: Ensure folder for application exists
+          file:
+            name: /tmp/user-registration-V2
+            state: directory
+            recurse: yes    
+    
+        - name: Ensure apllication source code is latest
+          git:
+            repo: 'https://github.com/ewolff/user-registration-V2.git'
+            dest: /tmp/user-registration-V2
+            clone: yes
+            update: yes
+        
+        - name: Build application
+          shell: 
+            cmd: ./mvnw -pl user-registration-application -am install
+            chdir: /tmp/user-registration-V2
+    
+    #    - debug:
+    #        var: result
+    #        verbosity: 2
+    
+    #    - debug:
+    #        msg: "{{result}}"
+    
+    #    - name: Sync app with localhost
+    #      synchronize:
+    #        src: /tmp/user-registration-V2/user-registration-application/target/user-registration-application-0.0.1-SNAPSHOT.war
+    #        dest: /tmp/user-registration-application-0.0.1-SNAPSHOT.war
+    #        mode: pull
+    
+        - name: Sync app with all web servers      
+          synchronize:
+            src: /tmp/user-registration-V2/user-registration-application/target/user-registration-application-0.0.1-SNAPSHOT.war
+            dest: /var/lib/tomcat8/webapps/user-registration-application-0.0.1-SNAPSHOT.war
+            mode: pull
+          delegate_to: "{{ groups['web'][0] }}"
+    
+    - name: Run application
+      hosts: web
+      become: yes 
+    
+      tasks:
+        - name: Ensure tomcat8 is installed
+          apt:
+            name: tomcat8
+            state: present
+        
+    #    - name: Sync app with web server
+    #      synchronize:
+    #        src: /tmp/user-registration-application-0.0.1-SNAPSHOT.war
+    #        dest: /var/lib/tomcat8/webapps/user-registration-application-0.0.1-SNAPSHOT.war
+    
+        - name: Ensure tomcat service is started
+          service:
+            name: tomcat8
+            state: restarted
+   
